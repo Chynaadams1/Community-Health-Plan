@@ -14,6 +14,28 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+# config/urls.py
+from django.contrib import admin
+from django.urls import path
+from django.http import HttpResponse
+
+
+def home(_request):
+    return HttpResponse(
+        "✅ Community Health app is live. Visit <a href='/admin/'>/admin</a>.",
+        content_type="text/html",
+    )
+
+
+def health(_request):
+    return HttpResponse("ok", content_type="text/plain")
+
+
+urlpatterns = [
+    path("", home),            # <-- homepage at /
+    path("healthz/", health),  # simple health check
+    path("admin/", admin.site.urls),
+]
 
 from django.contrib import admin
 from django.urls import path
