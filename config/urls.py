@@ -14,22 +14,21 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-# config/urls.py
 from django.contrib import admin
 from django.urls import path
 from django.http import HttpResponse
 
-def home(_request):
+def home(_):
     return HttpResponse(
-        "✅ Community Health app is live. Visit <a href='/admin/'>/admin</a>.",
+        "✅ Community Health app is live. Go to <a href='/admin/'>Admin</a>.",
         content_type="text/html",
     )
 
-def health(_request):
+def health(_):
     return HttpResponse("ok", content_type="text/plain")
 
 urlpatterns = [
-    path("", home),            # /
-    path("healthz/", health),  # /healthz/  (note the trailing slash)
+    path("", home),            # ← homepage at /
+    path("healthz/", health),  # ← your working healthcheck
     path("admin/", admin.site.urls),
 ]
