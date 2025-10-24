@@ -5,16 +5,16 @@ from dotenv import load_dotenv
 import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env")
+load_dotenv()
 
-DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+def env_bool(name: str, default: bool = False) -> bool:
+    return str(os.getenv(name, str(default))).strip().lower() in ("1", "true", "t", "yes", "y")
 
-# Make sure this includes your prod host later (Render/Fly/etc)
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
-CSRF_TRUSTED_ORIGINS = os.getenv(
-    "CSRF_TRUSTED_ORIGINS",
-    "http://127.0.0.1:8000,http://localhost:8000"
-).split(",")
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
+DEBUG = env_bool("DEBUG", False)
+
+ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 
 # Static files (for Whitenoise)
 STATIC_URL = "static/"
@@ -25,7 +25,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ⬇️ load .env explicitly from the project root
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-# ... later in the file:
+
+TIME_ZONE = os.getenv("TIME_ZONE", "UTC")
+USE_TZ = True
+
 DATABASES = {
     "default": dj_database_url.parse(
         os.getenv("DATABASE_URL"),
@@ -50,6 +53,16 @@ ALLOWED_HOSTS = []
 
 
 # Application definition
+
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+if not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
 
 INSTALLED_APPS = [
     'django.contrib.admin',
