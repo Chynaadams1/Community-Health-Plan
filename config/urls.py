@@ -19,34 +19,17 @@ from django.contrib import admin
 from django.urls import path
 from django.http import HttpResponse
 
-
 def home(_request):
     return HttpResponse(
         "✅ Community Health app is live. Visit <a href='/admin/'>/admin</a>.",
         content_type="text/html",
     )
 
-
 def health(_request):
     return HttpResponse("ok", content_type="text/plain")
 
-
 urlpatterns = [
-    path("", home),            # <-- homepage at /
-    path("healthz/", health),  # simple health check
-    path("admin/", admin.site.urls),
-]
-
-from django.contrib import admin
-from django.urls import path
-from django.http import HttpResponse
-
-def home(_request):
-    return HttpResponse(
-        "✅ Community Health app is live. Visit <a href='/admin/'>/admin</a>."
-    )
-
-urlpatterns = [
-    path("", home),           # 👈 homepage
+    path("", home),            # /
+    path("healthz/", health),  # /healthz/  (note the trailing slash)
     path("admin/", admin.site.urls),
 ]
