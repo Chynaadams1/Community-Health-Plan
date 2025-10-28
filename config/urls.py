@@ -1,7 +1,7 @@
 # config/urls.py
 from django.contrib import admin
-from django.http import JsonResponse
-from django.urls import path, include
+from django.http import JsonResponse, HttpResponse
+from django.urls import path
 
 def api_root(_request):
     return JsonResponse({
@@ -9,8 +9,8 @@ def api_root(_request):
         "service": "Community Health API",
         "endpoints": [
             "/healthz",
-            "/api/appointments/ (once wired)",
-            "/api/providers/    (once wired)",
+            "/api/appointments/ (coming soon)",
+            "/api/providers/    (coming soon)",
         ],
     })
 
@@ -18,6 +18,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("healthz", lambda r: JsonResponse({"status": "ok"})),
     path("", lambda r: JsonResponse({"message": "Welcome to Community Health"})),
-    path("api/", api_root),  # <— this creates /api/
-    # path("api/", include("appointments.api_urls")),  # <— add later when you expose real endpoints
+    path("api/", api_root),                             # <— /api/
+    path("version.txt", lambda r: HttpResponse("ok")),  # <— sanity check
 ]
