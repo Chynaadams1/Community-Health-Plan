@@ -1,34 +1,23 @@
-"""
-URL configuration for config project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
+# config/urls.py
 from django.contrib import admin
-from django.urls import path
-from django.http import HttpResponse
+from django.http import JsonResponse
+from django.urls import path, include
 
-def home(_):
-    return HttpResponse(
-        "✅ Community Health app is live. Go to <a href='/admin/'>Admin</a>.",
-        content_type="text/html",
-    )
-
-def health(_):
-    return HttpResponse("ok", content_type="text/plain")
+def api_root(_request):
+    return JsonResponse({
+        "ok": True,
+        "service": "Community Health API",
+        "endpoints": [
+            "/healthz",
+            "/api/appointments/ (once wired)",
+            "/api/providers/    (once wired)",
+        ],
+    })
 
 urlpatterns = [
-    path("", home),            # ← homepage at /
-    path("healthz/", health),  # ← your working healthcheck
     path("admin/", admin.site.urls),
+    path("healthz", lambda r: JsonResponse({"status": "ok"})),
+    path("", lambda r: JsonResponse({"message": "Welcome to Community Health"})),
+    path("api/", api_root),  # <— this creates /api/
+    # path("api/", include("appointments.api_urls")),  # <— add later when you expose real endpoints
 ]
