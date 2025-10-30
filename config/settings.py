@@ -9,9 +9,7 @@ import dj_database_url
 # Base & environment
 # -------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Load .env for local dev; on Render, real env vars are already present
-load_dotenv(BASE_DIR / ".env")
+load_dotenv(BASE_DIR / ".env")  # local dev; Render uses real env vars
 
 def env_bool(name: str, default: bool = False) -> bool:
     return str(os.getenv(name, str(default))).strip().lower() in ("1", "true", "t", "yes", "y")
@@ -22,77 +20,69 @@ def env_bool(name: str, default: bool = False) -> bool:
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
 DEBUG = env_bool("DEBUG", False)
 
-# Build ALLOWED_HOSTS from env, then add Render host if present
+# Hosts & CSRF
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
 RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+
 if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
 # Safe defaults if nothing set
 if not ALLOWED_HOSTS:
     ALLOWED_HOSTS = [".onrender.com", "localhost", "127.0.0.1"]
 
-# CSRF trusted origins (env + Render host)
-CSRF_TRUSTED_ORIGINS = [
-    o.strip() for o in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
+# URLs for CORS/CSRF
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+BACKEND_URL  = os.getenv("BACKEND_URL", "https://community-health-plan.onrender.com")
+
+# CORS
+CORS_ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
-if RENDER_EXTERNAL_HOSTNAME:
-    origin = f"https://{RENDER_EXTERNAL_HOSTNAME}"
-    if origin not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(origin)
+CORS_ALLOW_CREDENTIALS = True  # if you use cookie/session auth
 
-# Timezone
-TIME_ZONE = os.getenv("TIME_ZONE", "UTC")
-USE_TZ = True
-LANGUAGE_CODE = "en-us"
-USE_I18N = True
+# CSRF (add env list if provided)
+CSRF_TRUSTED_ORIGINS = [
+    BACKEND_URL,
+    f"https://{RENDER_EXTERNAL_HOSTNAME}" if RENDER_EXTERNAL_HOSTNAME else BACKEND_URL,
+    "https://community-health-plan.onrender.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
-# -------------------------------------------------------------------
-# Database (Supabase via Render pooler)
-# -------------------------------------------------------------------
-DATABASES = {
-    "default": dj_database_url.config(
-        default=os.getenv("DATABASE_URL", ""),
-        conn_max_age=600,
-        ssl_require=True,
-    )
-}
-
-# Behind Render/Cloudflare proxies
-USE_X_FORWARDED_HOST = True
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Cross-site cookies if you’re using cookies from the frontend
+SESSION_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SAMESITE    = "None"
+SESSION_COOKIE_SECURE   = True
+CSRF_COOKIE_SECURE      = True
 
 # -------------------------------------------------------------------
-# Static files (Whitenoise)
-# -------------------------------------------------------------------
-STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
-# Optional but recommended for hashed static files in prod:
-# STORAGES = {
-#     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-#     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
-# }
-
-# Harden cookies in production
-if not DEBUG:
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
-
-# -------------------------------------------------------------------
-# Django defaults below (unchanged except duplicates removed)
+# Installed apps & middleware
 # -------------------------------------------------------------------
 INSTALLED_APPS = [
+    # third-party first so we can see them clearly
+    "corsheaders",
+    "rest_framework",
+
+    # django
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
+    # your apps
     "appointments",
 ]
 
+# CORS middleware MUST be high, before CommonMiddleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -120,11 +110,50 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+# -------------------------------------------------------------------
+# Database (Supabase via pooler)
+# -------------------------------------------------------------------
+DATABASES = {
+    "default": dj_database_url.config(
+        default=os.getenv("DATABASE_URL", ""),
+        conn_max_age=600,
+        ssl_require=True,
+    )
+}
+
+# Render/Cloudflare proxy headers
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# -------------------------------------------------------------------
+# Passwords / i18n
+# -------------------------------------------------------------------
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = os.getenv("TIME_ZONE", "UTC")
+USE_I18N = True
+USE_TZ = True
+
+# -------------------------------------------------------------------
+# Static files (Whitenoise)
+# -------------------------------------------------------------------
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+# If you want hashed filenames in prod, uncomment:
+# STORAGES = {
+#     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+#     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+# }
+
+# Harden cookies in production
+if not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
