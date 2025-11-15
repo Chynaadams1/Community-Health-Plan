@@ -4,11 +4,15 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.dateparse import parse_datetime
 from django.db.models import Q
 from django.utils import timezone
+from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.hashers import make_password
 import json
 
 from .models import Appointment, Provider, Specialty, Availability
 
-# ===== YOUR EXISTING CODE (KEEP THIS) =====
+User = get_user_model()
+
+# ===== APPOINTMENT SERIALIZER =====
 
 def _serialize(a: Appointment) -> dict:
     return {
@@ -25,6 +29,95 @@ def _serialize(a: Appointment) -> dict:
         "updated_at": a.updated_at.isoformat(),
     }
 
+# ===== AUTHENTICATION =====
+
+@csrf_exempt
+def register(request):
+    """POST -> create new user account"""
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return HttpResponseBadRequest("Invalid JSON")
+    
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    email = data.get('email', '').strip()
+    
+    if not username or not password:
+        return HttpResponseBadRequest("Username and password required")
+    
+    if User.objects.filter(username=username).exists():
+        return JsonResponse(
+            {"status": "error", "error": "Username already exists"},
+            status=400
+        )
+    
+    user = User.objects.create(
+        username=username,
+        email=email,
+        password=make_password(password),
+        first_name=data.get('first_name', ''),
+        last_name=data.get('last_name', '')
+    )
+    
+    return JsonResponse({
+        "status": "created",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name
+        }
+    }, status=201)
+
+
+@csrf_exempt
+def login(request):
+    """POST -> login and get user info"""
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return HttpResponseBadRequest("Invalid JSON")
+    
+    username = data.get('username', '')
+    password = data.get('password', '')
+    
+    if not username or not password:
+        return HttpResponseBadRequest("Username and password required")
+    
+    user = authenticate(username=username, password=password)
+    
+    if user is None:
+        return JsonResponse(
+            {"status": "error", "error": "Invalid credentials"},
+            status=401
+        )
+    
+    is_provider = hasattr(user, 'provider_profile')
+    provider_id = user.provider_profile.id if is_provider else None
+    
+    return JsonResponse({
+        "status": "ok",
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "is_provider": is_provider,
+            "provider_id": provider_id
+        }
+    })
+
+# ===== APPOINTMENTS =====
+
 @csrf_exempt
 def appointment_list(request):
     """
@@ -38,13 +131,11 @@ def appointment_list(request):
     if request.method != "POST":
         return HttpResponseNotAllowed(["GET", "POST"])
 
-    # POST
     try:
         data = json.loads(request.body.decode("utf-8"))
     except Exception:
         return HttpResponseBadRequest("Invalid JSON")
 
-    # Required fields (keep simple while UI stabilizes)
     required = ["provider", "start", "end"]
     missing = [k for k in required if not data.get(k)]
     if missing:
@@ -57,7 +148,6 @@ def appointment_list(request):
     if end_dt <= start_dt:
         return HttpResponseBadRequest("end must be after start")
 
-    # Conflict detection: same provider + overlapping time
     provider_id = data["provider"]
     overlap = Appointment.objects.filter(
         provider_id=provider_id
@@ -73,7 +163,7 @@ def appointment_list(request):
 
     a = Appointment.objects.create(
         provider_id=provider_id,
-        patient_id=data.get("patient"),  # optional for now
+        patient_id=data.get("patient"),
         patient_name=data.get("patient_name", "").strip(),
         provider_name=data.get("provider_name", "").strip(),
         service=data.get("service", "").strip(),
@@ -84,8 +174,7 @@ def appointment_list(request):
     )
     return JsonResponse({"status": "created", "item": _serialize(a)}, status=201)
 
-
-# ===== ADD THESE NEW VIEWS BELOW =====
+# ===== SPECIALTIES =====
 
 def specialty_list(request):
     """GET -> list all specialties"""
@@ -98,6 +187,7 @@ def specialty_list(request):
     ]
     return JsonResponse({"status": "ok", "items": specialties})
 
+# ===== PROVIDERS =====
 
 def provider_list(request):
     """GET -> list providers (with optional filters)"""
@@ -106,12 +196,10 @@ def provider_list(request):
     
     providers = Provider.objects.select_related('user', 'specialty')
     
-    # Filter by specialty: ?specialty=1
     specialty_id = request.GET.get('specialty')
     if specialty_id:
         providers = providers.filter(specialty_id=specialty_id)
     
-    # Filter by location: ?location=Baltimore
     location = request.GET.get('location')
     if location:
         providers = providers.filter(location__icontains=location)
@@ -161,7 +249,6 @@ def provider_availability(request, provider_id):
     except Provider.DoesNotExist:
         return JsonResponse({"status": "error", "error": "Provider not found"}, status=404)
     
-    # Get future availability
     now = timezone.now()
     availabilities = Availability.objects.filter(
         provider=provider,
@@ -180,6 +267,7 @@ def provider_availability(request, provider_id):
     ]
     return JsonResponse({"status": "ok", "items": items})
 
+# ===== AVAILABILITY =====
 
 def availability_list(request):
     """GET -> list all availability slots (with optional filters)"""
@@ -190,7 +278,6 @@ def availability_list(request):
         start__gte=timezone.now()
     )
     
-    # Filter by provider: ?provider=1
     provider_id = request.GET.get('provider')
     if provider_id:
         availabilities = availabilities.filter(provider_id=provider_id)

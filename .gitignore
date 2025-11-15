@@ -1,8 +1,26 @@
-.venv/
-.env
+# Python cache
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# macOS system files
+.DS_Store
+
+# SQLite databases
+db.sqlite3
+*.sqlite3
+
+# Django static & media
 staticfiles/
 media/
-*.sqlite3
-.DS_Store
+
+# Environment variables (DO NOT upload)
+.env
+.env.*
+
+# Frontend folder (optional - if you do NOT want backend + frontend in same repo)
+# Community-healthcare/
+
