@@ -18,7 +18,7 @@ def env_bool(name: str, default: bool = False) -> bool:
 # Core settings from env
 # -------------------------------------------------------------------
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-only-change-me")
-DEBUG = env_bool("DEBUG", False)
+DEBUG = env_bool("DEBUG", True)  # default True for easier local dev
 
 # Hosts & CSRF
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h.strip()]
@@ -35,34 +35,63 @@ if not ALLOWED_HOSTS:
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 BACKEND_URL  = os.getenv("BACKEND_URL", "https://community-health-plan.onrender.com")
 
-# CORS
-CORS_ALLOWED_ORIGINS = [
+# -------------------------------------------------------------------
+# CORS / CSRF
+# -------------------------------------------------------------------
+# Allow common Vite ports explicitly
+CORS_ALLOWED_ORIGINS = list({
     FRONTEND_URL,
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "http://localhost:5173", "http://127.0.0.1:5173",
+    "http://localhost:5174", "http://127.0.0.1:5174",
+    "http://localhost:5175", "http://127.0.0.1:5175",
+    "http://localhost:5176", "http://127.0.0.1:5176",
+    "http://localhost:5177", "http://127.0.0.1:5177",
+    "http://localhost:5178", "http://127.0.0.1:5178",
+    "http://localhost:5179", "http://127.0.0.1:5179",
+    "http://localhost:5180", "http://127.0.0.1:5180",
+    "http://localhost:5181", "http://127.0.0.1:5181",
+})
+# Also allow any localhost port via regex during dev
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^http://localhost:\d+$",
+    r"^http://127\.0\.0\.1:\d+$",
 ]
 CORS_ALLOW_CREDENTIALS = True  # if you use cookie/session auth
 
-# CSRF (add env list if provided)
-CSRF_TRUSTED_ORIGINS = [
+# CSRF (include both http and https where relevant)
+CSRF_TRUSTED_ORIGINS = list({
     BACKEND_URL,
     f"https://{RENDER_EXTERNAL_HOSTNAME}" if RENDER_EXTERNAL_HOSTNAME else BACKEND_URL,
     "https://community-health-plan.onrender.com",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+    "http://localhost:5173", "http://127.0.0.1:5173",
+    "http://localhost:5174", "http://127.0.0.1:5174",
+    "http://localhost:5175", "http://127.0.0.1:5175",
+    "http://localhost:5176", "http://127.0.0.1:5176",
+    "http://localhost:5177", "http://127.0.0.1:5177",
+    "http://localhost:5178", "http://127.0.0.1:5178",
+    "http://localhost:5179", "http://127.0.0.1:5179",
+    "http://localhost:5180", "http://127.0.0.1:5180",
+    "http://localhost:5181", "http://127.0.0.1:5181",
+})
 
-# Cross-site cookies if you’re using cookies from the frontend
-SESSION_COOKIE_SAMESITE = "None"
-CSRF_COOKIE_SAMESITE    = "None"
-SESSION_COOKIE_SECURE   = True
-CSRF_COOKIE_SECURE      = True
+# Cross-site cookie settings:
+# In local dev (DEBUG=True), don't force Secure/None; it breaks on http.
+if DEBUG:
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SAMESITE    = "Lax"
+    SESSION_COOKIE_SECURE   = False
+    CSRF_COOKIE_SECURE      = False
+else:
+    SESSION_COOKIE_SAMESITE = "None"
+    CSRF_COOKIE_SAMESITE    = "None"
+    SESSION_COOKIE_SECURE   = True
+    CSRF_COOKIE_SECURE      = True
 
 # -------------------------------------------------------------------
 # Installed apps & middleware
 # -------------------------------------------------------------------
 INSTALLED_APPS = [
-    # third-party first so we can see them clearly
+    # third-party
     "corsheaders",
     "rest_framework",
 
@@ -96,7 +125,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -111,15 +140,25 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # -------------------------------------------------------------------
-# Database (Supabase via pooler)
+# Database (Supabase via pooler) with local fallback
 # -------------------------------------------------------------------
-DATABASES = {
-    "default": dj_database_url.config(
-        default=os.getenv("DATABASE_URL", ""),
-        conn_max_age=600,
-        ssl_require=True,
-    )
-}
+db_url = os.getenv("DATABASE_URL", "").strip()
+if db_url:
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=db_url,
+            conn_max_age=600,
+            ssl_require=True,
+        )
+    }
+else:
+    # Local fallback for dev
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # Render/Cloudflare proxy headers
 USE_X_FORWARDED_HOST = True
@@ -145,31 +184,11 @@ USE_TZ = True
 # -------------------------------------------------------------------
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-# If you want hashed filenames in prod, uncomment:
+
+# Hashed static files in prod (optional):
 # STORAGES = {
 #     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
 #     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 # }
 
-# Harden cookies in production
-if not DEBUG:
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-TEMPLATES = [
-    {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],  # 👈 add this
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
-            ],
-        },
-    },
-]
-

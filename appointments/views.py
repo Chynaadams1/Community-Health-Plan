@@ -121,13 +121,26 @@ def login(request):
 @csrf_exempt
 def appointment_list(request):
     """
-    GET  -> list recent appointments
+    GET  -> list recent appointments (optionally filter by patient or provider)
     POST -> create with conflict detection
     """
+    # ---------- GET: list appointments ----------
     if request.method == "GET":
-        items = [_serialize(a) for a in Appointment.objects.order_by("-start")[:50]]
+        qs = Appointment.objects.order_by("-start")
+
+        # Optional filters ?patient=<id>&provider=<id>
+        patient_id = request.GET.get("patient")
+        provider_id = request.GET.get("provider")
+
+        if patient_id:
+            qs = qs.filter(patient_id=patient_id)
+        if provider_id:
+            qs = qs.filter(provider_id=provider_id)
+
+        items = [_serialize(a) for a in qs[:50]]
         return JsonResponse({"status": "ok", "items": items})
 
+    # ---------- POST: create appointment ----------
     if request.method != "POST":
         return HttpResponseNotAllowed(["GET", "POST"])
 
@@ -144,7 +157,9 @@ def appointment_list(request):
     start_dt = parse_datetime(data["start"])
     end_dt = parse_datetime(data["end"])
     if not start_dt or not end_dt:
-        return HttpResponseBadRequest("start/end must be ISO datetimes (e.g. 2025-11-01T13:30:00Z)")
+        return HttpResponseBadRequest(
+            "start/end must be ISO datetimes (e.g. 2025-11-01T13:30:00Z)"
+        )
     if end_dt <= start_dt:
         return HttpResponseBadRequest("end must be after start")
 
