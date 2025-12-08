@@ -1,4 +1,3 @@
-# appointments/models.py
 from django.db import models
 from django.contrib.auth import get_user_model
 import uuid
@@ -6,6 +5,9 @@ import uuid
 User = get_user_model()
 
 
+# ======================================
+# SPECIALTY
+# ======================================
 class Specialty(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
@@ -13,18 +15,42 @@ class Specialty(models.Model):
         return self.name
 
 
+# ======================================
+# PROVIDER
+# ======================================
 class Provider(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="provider_profile")
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="provider_profile"
+    )
     specialty = models.ForeignKey(Specialty, on_delete=models.PROTECT)
     location = models.CharField(max_length=255)
+
+    # NEW — profile photo for providers
+    profile_photo = models.ImageField(
+        upload_to="provider_photos/",
+        blank=True,
+        null=True
+    )
+
+    # NEW — approval system for admin dashboard
+    is_approved = models.BooleanField(default=False)
 
     def __str__(self):
         display = self.user.get_full_name() or self.user.username
         return f"{display} ({self.specialty})"
 
 
+# ======================================
+# AVAILABILITY
+# ======================================
 class Availability(models.Model):
-    provider = models.ForeignKey(Provider, on_delete=models.CASCADE, related_name="availabilities")
+    provider = models.ForeignKey(
+        Provider,
+        on_delete=models.CASCADE,
+        related_name="availabilities"
+    )
     start = models.DateTimeField()
     end = models.DateTimeField()
 
@@ -35,20 +61,25 @@ class Availability(models.Model):
         return f"{self.provider} | {self.start:%Y-%m-%d %H:%M} - {self.end:%H:%M}"
 
 
+# ======================================
+# APPOINTMENT
+# ======================================
 class Appointment(models.Model):
+
     class Status(models.TextChoices):
         REQUESTED = "requested", "Requested"
         CONFIRMED = "confirmed", "Confirmed"
         CANCELLED = "cancelled", "Cancelled"
         COMPLETED = "completed", "Completed"
 
-    # ⬇️ IMPORTANT: do NOT declare a custom id here; keep the default integer PK
+    patient = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    provider = models.ForeignKey(
+        Provider,
+        on_delete=models.CASCADE,
+        related_name="appointments"
+    )
 
-    # normalized relations (these already exist in your DB)
-    patient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="appointments")
-    provider = models.ForeignKey(Provider, on_delete=models.CASCADE, related_name="appointments")
-
-    # denormalized display fields (these columns now exist/will be added by migration)
+    # denormalized fields
     patient_name = models.CharField(max_length=120, blank=True)
     provider_name = models.CharField(max_length=120, blank=True)
     service = models.CharField(max_length=120, blank=True)
@@ -56,7 +87,11 @@ class Appointment(models.Model):
     start = models.DateTimeField()
     end = models.DateTimeField()
 
-    status = models.CharField(max_length=12, choices=Status.choices, default=Status.REQUESTED)
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.REQUESTED
+    )
     notes = models.TextField(blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -70,6 +105,9 @@ class Appointment(models.Model):
         return f"{self.patient} → {self.provider} ({self.start:%Y-%m-%d %H:%M})"
 
 
+# ======================================
+# CHAT HISTORY
+# ======================================
 class ChatHistory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     session_id = models.UUIDField(default=uuid.uuid4, db_index=True)
@@ -83,10 +121,17 @@ class ChatHistory(models.Model):
         return f"Chat #{self.session_id} @ {self.created_at:%Y-%m-%d %H:%M}"
 
 
+# ======================================
+# DOCTOR NOTES
+# ======================================
 class DoctorNote(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    appointment = models.ForeignKey(Appointment, on_delete=models.CASCADE, related_name="doctor_notes")
-    author_name = models.CharField(max_length=120)  # or ForeignKey(User) later
+    appointment = models.ForeignKey(
+        Appointment,
+        on_delete=models.CASCADE,
+        related_name="doctor_notes"
+    )
+    author_name = models.CharField(max_length=120)
     note_text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -1,12 +1,15 @@
 from django.contrib import admin
 from django.urls import path, include
-from django.http import HttpResponse
-
-def home(request):
-    return HttpResponse("Backend is running — API is available at /api/")
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
-    path('', home),
     path('admin/', admin.site.urls),
+
+    # All backend API endpoints
     path('api/', include('appointments.urls')),
 ]
+
+# Serve media files (provider photos) ONLY in DEBUG mode
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
