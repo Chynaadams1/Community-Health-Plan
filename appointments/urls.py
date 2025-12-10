@@ -1,9 +1,11 @@
 from django.urls import path
-from . import views
 from django.conf import settings
 from django.conf.urls.static import static
+from . import views
+from .views import provider_update   # <--- IMPORTANT
 
 urlpatterns = [
+
     # ========================================================
     # AUTH
     # ========================================================
@@ -19,23 +21,26 @@ urlpatterns = [
     path("appointments/<int:apt_id>/complete/", views.complete_appointment, name="appointment-complete"),
     path("appointments/<int:apt_id>/reschedule/", views.reschedule_appointment, name="appointment-reschedule"),
 
+    # ========================================================
     # PROVIDERS
+    # ========================================================
     path("providers/", views.provider_list, name="provider-list"),
     path("providers/<int:provider_id>/", views.provider_detail, name="provider-detail"),
+
+    # Provider profile update endpoint
+    path("providers/<int:provider_id>/update/", provider_update, name="provider-update"),
 
     # Provider photo upload endpoint
     path("providers/<int:provider_id>/upload-photo/", views.provider_upload_photo),
 
-    # Provider appointment analytics
-
+    # Provider appointments
     path("providers/<int:provider_id>/appointments/", views.provider_appointments),
     path("providers/<int:provider_id>/appointments/upcoming/", views.provider_upcoming),
     path("providers/<int:provider_id>/appointments/past/", views.provider_past),
     path("providers/<int:provider_id>/appointments/today/", views.provider_today),
-    
-    # PROVIDER ANALYTICS
-    path("providers/<int:provider_id>/analytics/", views.provider_analytics, name="provider-analytics"),
 
+    # Provider analytics
+    path("providers/<int:provider_id>/analytics/", views.provider_analytics, name="provider-analytics"),
 
     # ========================================================
     # PATIENT DASHBOARD
@@ -64,33 +69,9 @@ urlpatterns = [
     # ========================================================
     # ADMIN PROVIDERS
     # ========================================================
-    path("admin/providers/", views.admin_provider_list),
-    path("admin/providers/<int:provider_id>/toggle/", views.admin_toggle_provider, name="admin-toggle-provider"),
-    path("admin/stats/", views.admin_stats),
-
-
-    # ========================================================
-    # ADMIN PROVIDER MANAGEMENT
-    # ========================================================
     path("admin/providers/", views.admin_provider_list, name="admin-provider-list"),
     path("admin/providers/<int:provider_id>/toggle/", views.admin_toggle_provider, name="admin-provider-toggle"),
-
-    # ========================================================
-    # ADMIN PROVIDER MANAGEMENT
-    # ========================================================
-    path("admin/providers/", views.admin_provider_list, name="admin-provider-list"),
-    path("admin/providers/<int:provider_id>/toggle/", views.admin_toggle_provider, name="admin-provider-toggle"),
-    
-    # ========================================================
-    # ADMIN ROUTES
-    # ========================================================
     path("admin/stats/", views.admin_stats, name="admin-stats"),
-
-    # Provider approvals
-    path("admin/providers/", views.admin_provider_list, name="admin-provider-list"),
-    path("admin/providers/<int:provider_id>/toggle/", views.admin_toggle_provider, name="admin-provider-toggle"),
-
-
 ]
 
 # --------------------------------------------------------------

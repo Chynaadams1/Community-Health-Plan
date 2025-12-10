@@ -26,6 +26,8 @@ class Provider(models.Model):
     )
     specialty = models.ForeignKey(Specialty, on_delete=models.PROTECT)
     location = models.CharField(max_length=255)
+    bio = models.TextField(blank=True, null=True)
+
 
     # NEW — profile photo for providers
     profile_photo = models.ImageField(
